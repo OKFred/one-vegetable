@@ -1,0 +1,76 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "one-vegetable",
+  "main": "apps/api/src/worker.ts",
+  "compatibility_date": "2026-08-29",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "assets": {
+    "directory": "apps/web/dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "one-vegetable",
+      "migrations_dir": "apps/api/drizzle","database_id": "bb43a29c-77e2-4dd9-8de3-fab97242aafd"
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "secrets": {
+    "required": ["BOOTSTRAP_ADMIN_TOKEN", "ONE_VEGETABLE_CREDENTIAL_ENCRYPTION_KEY"]
+  },
+  "vars": {
+    "ONE_VEGETABLE_API_PREFIX": "/api/v1",
+    "ONE_VEGETABLE_ENVIRONMENT": "self-hosted",
+    "ONE_VEGETABLE_GATEWAY_MODE": "real",
+    "ONE_VEGETABLE_MUTATION_FLAGS": "operation:publishProduct,operation:saveProductDraft,operation:updateProduct,operation:updateProductDisplay,operation:operatePhotoGroup,operation:uploadPhoto,operation:transferPhotoFromUrl",
+    "ONE_VEGETABLE_REQUEST_RETENTION_DAYS": "30",
+    "ONE_VEGETABLE_AUTH_MODE": "passkey"
+  },
+  "env": {
+    "staging": {
+      "name": "one-vegetable-api-staging",
+      "vars": {
+        "ONE_VEGETABLE_API_PREFIX": "/api/v1",
+        "ONE_VEGETABLE_ENVIRONMENT": "staging",
+        "ONE_VEGETABLE_GATEWAY_MODE": "replay",
+        "ONE_VEGETABLE_CORS_ORIGINS": "https://staging.example.invalid",
+        "ONE_VEGETABLE_MUTATION_FLAGS": "",
+        "ONE_VEGETABLE_REQUEST_RETENTION_DAYS": "30",
+        "ONE_VEGETABLE_AUTH_MODE": "password"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "one-vegetable-staging",
+          "migrations_dir": "apps/api/drizzle"
+        }
+      ]
+    },
+    "production": {
+      "name": "one-vegetable-api-production",
+      "workers_dev": false,
+      "vars": {
+        "ONE_VEGETABLE_API_PREFIX": "/api/v1",
+        "ONE_VEGETABLE_ENVIRONMENT": "production",
+        "ONE_VEGETABLE_GATEWAY_MODE": "disabled",
+        "ONE_VEGETABLE_CORS_ORIGINS": "https://app.example.invalid",
+        "ONE_VEGETABLE_MUTATION_FLAGS": "",
+        "ONE_VEGETABLE_REQUEST_RETENTION_DAYS": "30",
+        "ONE_VEGETABLE_AUTH_MODE": "password"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "one-vegetable-production",
+          "migrations_dir": "apps/api/drizzle"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@one-vegetable/core",
+  "version": "2.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./browser": "./src/product-description-browser.ts",
+    "./credential-bundle": "./src/alibaba-credential-bundle.ts",
+    "./diagnostics": "./src/diagnostics.ts",
+    "./errors": "./src/errors.ts",
+    "./mock": "./src/mock-client.ts",
+    "./runtime": "./src/runtime.ts",
+    "./templates": "./src/product-description-template-client.ts",
+    "./version": "./src/version.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noble/hashes": "2.3.0",
+    "ajv": "8.20.0",
+    "ajv-i18n": "4.2.0",
+    "parse5": "8.0.1"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

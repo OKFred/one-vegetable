@@ -1,0 +1,52 @@
+<!doctype html>
+<head>
+<meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+<div class='container-fluid' style="min-width: 430px;">
+	<div class='row'>
+		<div class='col-md'>
+			<h5 style="padding: 3px;" id="Welcome"></h5>
+			<div id="divBeforeLogin">
+				<span id="spanNeedLogin"></span>👉 <a href='https://i.alibaba.com/' target='_blank'>My Alibaba</a>
+			</div>
+			<div id="divAfterLogin">
+				<div class="form-check form-switch">
+					<input class="form-check-input" type="checkbox" id="option1">
+					<label class="form-check-label" for="option1" id="label1">QrCode--二维码</label>
+				</div>
+				<div class="form-check form-switch">
+					<input class="form-check-input" type="checkbox" id="option5">
+					<label class="form-check-label" for="option5" id="label5">Language--语言切换</label>
+				</div>
+				<div class="form-check form-switch">
+					<input class="form-check-input" type="checkbox" id="option6">
+					<label class="form-check-label" for="option6" id="label6">Local service--本地服务</label>
+				</div>
+			</div>
+			<hr>
+			<div id="divBeforeAuth">
+				<button class="btn btn-sm btn-outline-danger" id="btnERPAuth">ERP Auth--ERP授权</button>
+			</div>
+			<br /><input hidden class="form-control" type="email" id="inputUserEmail" placeholder="开发者邮箱(可选)">
+			<div id="divAfterAuth" style="display:flex; flex-direction: row; justify-content: space-between;">
+				<select id="selectCurrentAccount" class="form-control" style="max-width: max-content; display: inline-block;">
+				</select>
+				<button class="btn btn-sm btn-outline-primary" id="btnERPLogin">ERP Login--ERP登录</button>
+				<button class="btn btn-sm btn-outline-secondary" id="btnClearAuth">Clear Auth--清除授权</button>
+			</div>
+		</div>
+	</div>
+	<hr>
+	<div class='row'>
+		<div class='col-md'>
+		</div>
+	</div>
+</div>
+</body>
+
+<!--	resources 资源	-->
+
+<script src="/main/popup.js"></script>
+<link rel="stylesheet" href='/base/bootstrap.min.css' />

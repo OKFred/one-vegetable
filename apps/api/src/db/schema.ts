@@ -1,0 +1,290 @@
+import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+
+export const schemaMigrations = sqliteTable('schema_migrations', {
+  version: integer('version').primaryKey(),
+  appliedTimeUtc: integer('applied_time_utc').notNull()
+});
+
+export const appMetadata = sqliteTable('app_metadata', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  createTimeUtc: integer('create_time_utc').notNull(),
+  updateTimeUtc: integer('update_time_utc').notNull(),
+  creatorId: text('creator_id').notNull(),
+  updaterId: text('updater_id').notNull(),
+  revision: integer('revision').notNull().default(1),
+  remark: text('remark')
+});
+
+export const users = sqliteTable(
+  'users',
+  {
+    id: text('id').primaryKey(),
+    username: text('username').notNull(),
+    passwordHash: text('password_hash').notNull(),
+    passwordSalt: text('password_salt').notNull(),
+    passwordLoginEnabled: integer('password_login_enabled', { mode: 'boolean' }).notNull().default(true),
+    role: text('role', { enum: ['admin', 'user'] }).notNull(),
+    status: text('status', { enum: ['active', 'disabled'] }).notNull(),
+    failedLoginCount: integer('failed_login_count').notNull().default(0),
+    lockedUntilUtc: integer('locked_until_utc'),
+    createTimeUtc: integer('create_time_utc').notNull(),
+    updateTimeUtc: integer('update_time_utc').notNull(),
+    creatorId: text('creator_id').notNull(),
+    updaterId: text('updater_id').notNull(),
+    revision: integer('revision').notNull().default(1),
+    remark: text('remark')
+  },
+  (table) => [uniqueIndex('users_username_unique').on(table.username)]
+);
+
+export const sessions = sqliteTable(
+  'sessions',
+  {
+    id: text('id').primaryKey(),
+    tokenHash: text('token_hash').notNull(),
+    csrfTokenHash: text('csrf_token_hash').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    absoluteExpiresTimeUtc: integer('absolute_expires_time_utc').notNull(),
+    idleExpiresTimeUtc: integer('idle_expires_time_utc').notNull(),
+    createTimeUtc: integer('create_time_utc').notNull(),
+    updateTimeUtc: integer('update_time_utc').notNull()
+  },
+  (table) => [
+    uniqueIndex('sessions_token_hash_unique').on(table.tokenHash),
+    index('sessions_user_id_index').on(table.userId)
+  ]
+);
+
+export const auditEvents = sqliteTable(
+  'audit_events',
+  {
+    id: text('id').primaryKey(),
+    eventTimeUtc: integer('event_time_utc').notNull(),
+    requestId: text('request_id').notNull(),
+    actorId: text('actor_id'),
+    action: text('action').notNull(),
+    resourceKind: text('resource_kind').notNull(),
+    resourceId: text('resource_id'),
+    outcome: text('outcome', { enum: ['success', 'error', 'denied'] }).notNull(),
+    reasonCode: text('reason_code').notNull(),
+    revisionBefore: integer('revision_before'),
+    revisionAfter: integer('revision_after')
+  },
+  (table) => [
+    index('audit_events_request_id_index').on(table.requestId),
+    index('audit_events_time_index').on(table.eventTimeUtc),
+    index('audit_events_actor_id_index').on(table.actorId)
+  ]
+);
+
+export const requestEvents = sqliteTable(
+  'request_events',
+  {
+    id: text('id').primaryKey(),
+    eventTimeUtc: integer('event_time_utc').notNull(),
+    requestId: text('request_id').notNull(),
+    environment: text('environment').notNull(),
+    runtime: text('runtime', { enum: ['node', 'cloudflare'] }).notNull(),
+    route: text('route').notNull(),
+    operation: text('operation').notNull(),
+    actorId: text('actor_id'),
+    outcome: text('outcome', { enum: ['success', 'error', 'denied'] }).notNull(),
+    statusCode: integer('status_code').notNull(),
+    durationMilliseconds: integer('duration_milliseconds').notNull()
+  },
+  (table) => [
+    index('request_events_request_id_index').on(table.requestId),
+    index('request_events_time_index').on(table.eventTimeUtc),
+    index('request_events_actor_id_index').on(table.actorId),
+    index('request_events_outcome_index').on(table.outcome)
+  ]
+);
+
+export const productDescriptionTemplates = sqliteTable(
+  'product_description_templates',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    category: text('category', {
+      enum: ['company', 'logistics', 'packaging', 'service', 'custom']
+    }).notNull(),
+    language: text('language', { enum: ['zh_CN', 'en_US'] }).notNull(),
+    html: text('html').notNull(),
+    status: text('status', { enum: ['active', 'archived'] }).notNull(),
+    createTimeUtc: integer('create_time_utc').notNull(),
+    updateTimeUtc: integer('update_time_utc').notNull(),
+    creatorId: text('creator_id').notNull(),
+    updaterId: text('updater_id').notNull(),
+    revision: integer('revision').notNull().default(1),
+    remark: text('remark')
+  },
+  (table) => [
+    index('product_description_templates_language_status_index').on(table.language, table.status),
+    index('product_description_templates_category_index').on(table.category)
+  ]
+);
+
+export const productMutationJobs = sqliteTable(
+  'product_mutation_jobs',
+  {
+    id: text('id').primaryKey(),
+    requestId: text('request_id').notNull(),
+    productId: text('product_id').notNull(),
+    operation: text('operation', { enum: ['updateProduct', 'updateProductDisplay'] }).notNull(),
+    status: text('status', {
+      enum: [
+        'submitted',
+        'auditing',
+        'verifying',
+        'verified',
+        'recovery-required',
+        'recovering',
+        'recovered',
+        'failed'
+      ]
+    }).notNull(),
+    categoryId: integer('category_id'),
+    language: text('language', { enum: ['zh_CN', 'en_US'] }),
+    payloadFingerprint: text('payload_fingerprint').notNull(),
+    fieldExpectationsJson: text('field_expectations_json').notNull(),
+    encryptedProductId: text('encrypted_product_id'),
+    targetDisplay: text('target_display', { enum: ['online', 'offline'] }),
+    originalDisplay: text('original_display', { enum: ['online', 'offline'] }),
+    traceId: text('trace_id'),
+    reasonCode: text('reason_code'),
+    message: text('message'),
+    submittedTimeUtc: integer('submitted_time_utc').notNull(),
+    lastCheckedTimeUtc: integer('last_checked_time_utc'),
+    completedTimeUtc: integer('completed_time_utc'),
+    createTimeUtc: integer('create_time_utc').notNull(),
+    updateTimeUtc: integer('update_time_utc').notNull(),
+    creatorId: text('creator_id').notNull(),
+    updaterId: text('updater_id').notNull(),
+    revision: integer('revision').notNull().default(1),
+    remark: text('remark')
+  },
+  (table) => [
+    uniqueIndex('product_mutation_jobs_request_target_unique').on(
+      table.requestId,
+      table.productId,
+      table.operation
+    ),
+    index('product_mutation_jobs_product_time_index').on(table.productId, table.submittedTimeUtc),
+    index('product_mutation_jobs_status_time_index').on(table.status, table.updateTimeUtc)
+  ]
+);
+
+export const alibabaGatewayCredentials = sqliteTable('alibaba_gateway_credentials', {
+  id: text('id').primaryKey(),
+  encryptedBundle: text('encrypted_bundle').notNull(),
+  initializationVector: text('initialization_vector').notNull(),
+  algorithm: text('algorithm').notNull(),
+  schemaVersion: integer('schema_version').notNull(),
+  keyVersion: integer('key_version').notNull(),
+  accessTokenExpiresTimeUtc: integer('access_token_expires_time_utc'),
+  refreshTokenExpiresTimeUtc: integer('refresh_token_expires_time_utc'),
+  refreshLeaseId: text('refresh_lease_id'),
+  refreshLeaseUntilUtc: integer('refresh_lease_until_utc'),
+  lastRefreshTimeUtc: integer('last_refresh_time_utc'),
+  lastRefreshErrorCode: text('last_refresh_error_code'),
+  createTimeUtc: integer('create_time_utc').notNull(),
+  updateTimeUtc: integer('update_time_utc').notNull(),
+  creatorId: text('creator_id').notNull(),
+  updaterId: text('updater_id').notNull(),
+  revision: integer('revision').notNull().default(1),
+  remark: text('remark')
+});
+
+export const webauthnCredentials = sqliteTable(
+  'webauthn_credentials',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    publicKeyBase64Url: text('public_key_base64url').notNull(),
+    counter: integer('counter').notNull().default(0),
+    transportsJson: text('transports_json').notNull().default('[]'),
+    deviceType: text('device_type', { enum: ['singleDevice', 'multiDevice'] }).notNull(),
+    backedUp: integer('backed_up', { mode: 'boolean' }).notNull().default(false),
+    rpId: text('rp_id').notNull(),
+    name: text('name').notNull(),
+    createTimeUtc: integer('create_time_utc').notNull(),
+    updateTimeUtc: integer('update_time_utc').notNull(),
+    creatorId: text('creator_id').notNull(),
+    updaterId: text('updater_id').notNull(),
+    revision: integer('revision').notNull().default(1),
+    remark: text('remark')
+  },
+  (table) => [index('idx_webauthn_credentials_user_id').on(table.userId, table.createTimeUtc)]
+);
+
+export const webauthnChallenges = sqliteTable(
+  'webauthn_challenges',
+  {
+    id: text('id').primaryKey(),
+    challenge: text('challenge').notNull().unique(),
+    kind: text('kind', {
+      enum: ['bootstrap', 'login', 'register', 'recovery', 'enrollment']
+    }).notNull(),
+    userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    username: text('username'),
+    rpId: text('rp_id').notNull(),
+    origin: text('origin').notNull(),
+    contextJson: text('context_json').notNull().default('{}'),
+    expiresTimeUtc: integer('expires_time_utc').notNull(),
+    consumedTimeUtc: integer('consumed_time_utc'),
+    createTimeUtc: integer('create_time_utc').notNull()
+  },
+  (table) => [index('idx_webauthn_challenges_expiry').on(table.expiresTimeUtc, table.consumedTimeUtc)]
+);
+
+export const authRecoveryCodes = sqliteTable(
+  'auth_recovery_codes',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    codeHash: text('code_hash').notNull().unique(),
+    consumedTimeUtc: integer('consumed_time_utc'),
+    createTimeUtc: integer('create_time_utc').notNull()
+  },
+  (table) => [index('idx_auth_recovery_codes_user_id').on(table.userId, table.consumedTimeUtc)]
+);
+
+export const userEnrollmentTokens = sqliteTable(
+  'user_enrollment_tokens',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresTimeUtc: integer('expires_time_utc').notNull(),
+    consumedTimeUtc: integer('consumed_time_utc'),
+    creatorId: text('creator_id').notNull(),
+    createTimeUtc: integer('create_time_utc').notNull()
+  },
+  (table) => [index('idx_user_enrollment_tokens_expiry').on(table.expiresTimeUtc, table.consumedTimeUtc)]
+);
+
+export const schema = {
+  schemaMigrations,
+  appMetadata,
+  users,
+  sessions,
+  auditEvents,
+  requestEvents,
+  productDescriptionTemplates,
+  productMutationJobs,
+  alibabaGatewayCredentials,
+  webauthnCredentials,
+  webauthnChallenges,
+  authRecoveryCodes,
+  userEnrollmentTokens
+};
+export const CURRENT_SCHEMA_VERSION = 8;

@@ -1,0 +1,27 @@
+{
+  "name": "@one-vegetable/api",
+  "version": "2.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/node.ts",
+    "dev:node": "tsx watch src/node.ts",
+    "dev:worker": "pnpm --dir ../.. exec wrangler dev --config wrangler.jsonc --env=\"\"",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && pnpm --dir ../.. exec wrangler deploy --dry-run --config wrangler.jsonc --env=\"\" --outdir apps/api/dist/worker"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.0",
+    "@one-vegetable/core": "workspace:*",
+    "@simplewebauthn/server": "13.3.3",
+    "drizzle-orm": "0.45.2",
+    "hono": "4.13.1",
+    "linkedom": "0.18.13"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.21.2",
+    "drizzle-kit": "0.31.10",
+    "tsx": "4.23.12",
+    "typescript": "5.9.3"
+  }
+}

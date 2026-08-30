@@ -1,0 +1,16 @@
+{
+	"pluginDesc": {"message": "Add oil for My Alibaba"},
+	"helloWorld": {"message": "Hello BABA!"},
+	"Welcome": {"message": "Welcome"},
+	"MALoginFirst": {"message": "Please log in first"},
+	"MALanguage": {"message": "Language Switch"},
+	"MALanguageCN": {"message": "Chinese"},
+	"MALanguageEN": {"message": "English"},
+	"MAQrCode": {"message": "QR Code"},
+	"ERPAuth": {"message": "ERP Authorization"},
+	"ERPAuthClear": {"message": "Cancel Auth"},
+	"ERPLogin": {"message": "ERP Login"},
+	"ERPLocalHost": {"message": "Local Host"},
+	"ERPCloudService": {"message": "Cloud Service"},
+	"ERPDeveloperEmail": {"message": "Email for ERP auth & login(optional)"}
+}

@@ -1,0 +1,203 @@
+// @vitest-environment jsdom
+
+import { defineComponent, h } from 'vue';
+import { flushPromises, mount } from '@vue/test-utils';
+import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from 'vue-sonner';
+
+import { MockGatewayClient } from '@one-vegetable/core/mock';
+
+import { provideServices } from '../src/lib/services';
+import ProductsView from '../src/views/ProductsView.vue';
+
+vi.mock('vue-sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    warning: vi.fn()
+  }
+}));
+
+describe('ProductsView selection toolbar', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    globalThis.history.replaceState(null, '', '#/products/list');
+  });
+
+  it('supports unchecked, mixed and current-page selected states with a visible count', async () => {
+    const wrapper = mountView();
+    await waitForProducts(wrapper);
+    const toolbar = wrapper.get('[role="toolbar"][aria-label="商品列表操作"]');
+    const selectedCount = wrapper.get('[data-testid="product-selection-count"]');
+    const selectPage = wrapper.get('input[aria-label="选择本页全部 3 个商品"]');
+
+    expect(selectedCount.text()).toBe('已选 0 个');
+    expect(toolbar.text()).not.toContain('已选');
+    expect((selectPage.element as HTMLInputElement).indeterminate).toBe(false);
+    expect(selectPage.attributes('aria-checked')).toBe('false');
+    expect(
+      [...toolbar.element.querySelectorAll('button')].some((item) => item.textContent.trim() === '清空')
+    ).toBe(false);
+    expect(button(toolbar.element, '导出').disabled).toBe(true);
+    expect(button(toolbar.element, '更多').disabled).toBe(true);
+    expect(toolbar.text()).not.toContain('批量查询产品分');
+    expect(toolbar.text()).not.toContain('批量上架');
+    expect(toolbar.text()).not.toContain('批量下架');
+
+    await wrapper.get('input[aria-label="选择 Portable solar power station 1000W"]').setValue(true);
+    expect(selectedCount.text()).toBe('已选 1 个');
+    expect((selectPage.element as HTMLInputElement).indeterminate).toBe(true);
+    expect(selectPage.attributes('aria-checked')).toBe('mixed');
+    expect(button(toolbar.element, '导出').disabled).toBe(false);
+    expect(button(toolbar.element, '更多').disabled).toBe(false);
+
+    await selectPage.setValue(true);
+    expect(selectedCount.text()).toBe('已选 3 个');
+    expect(
+      (wrapper.get('input[aria-label="取消选择本页全部 3 个商品"]').element as HTMLInputElement).checked
+    ).toBe(true);
+
+    await wrapper.get('input[aria-label="取消选择本页全部 3 个商品"]').setValue(false);
+    expect(selectedCount.text()).toBe('已选 0 个');
+    expect(
+      (wrapper.get('input[aria-label="选择本页全部 3 个商品"]').element as HTMLInputElement).checked
+    ).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('clears current-page selection when search, page size or language changes', async () => {
+    const wrapper = mountView();
+    await waitForProducts(wrapper);
+    const selectedCount = () => wrapper.get('[data-testid="product-selection-count"]').text();
+
+    await wrapper.get('input[aria-label="选择 Portable solar power station 1000W"]').setValue(true);
+    expect(selectedCount()).toContain('已选 1 个');
+    await wrapper.get('input[placeholder="按标题搜索"]').setValue('canvas');
+    await waitForSelectionCount(wrapper, '已选 0 个', 'search change');
+
+    await wrapper.get('input[placeholder="按标题搜索"]').setValue('');
+    await waitForProducts(wrapper);
+    await wrapper.get('input[aria-label="选择 Portable solar power station 1000W"]').setValue(true);
+    const pageSizeSelect = wrapper.get('select[aria-label="每页条数"]');
+    const currentPageSize = (pageSizeSelect.element as HTMLSelectElement).value;
+    expect(currentPageSize).toBe('20');
+    await pageSizeSelect.setValue(currentPageSize === '10' ? '20' : '10');
+    await waitForSelectionCount(wrapper, '已选 0 个', 'page-size change');
+
+    await wrapper.get('input[aria-label="选择 Portable solar power station 1000W"]').setValue(true);
+    button(wrapper.element as Node, '商品发布/编辑').click();
+    await wrapper.vm.$nextTick();
+    await wrapper.get('summary').trigger('click');
+    const languageSelect = wrapper.get('select[aria-label="商品表单语言"]');
+    const currentLanguage = (languageSelect.element as HTMLSelectElement).value;
+    await languageSelect.setValue(currentLanguage === 'zh_CN' ? 'en_US' : 'zh_CN');
+    button(wrapper.element as Node, '商品列表').click();
+    await wrapper.vm.$nextTick();
+    await waitForSelectionCount(wrapper, '已选 0 个', 'language change');
+    wrapper.unmount();
+  });
+
+  it('previews list images and queries product scores for selected products in sequence', async () => {
+    const wrapper = mountView();
+    await waitForProducts(wrapper);
+
+    const table = wrapper.get('table');
+    const headers = table.findAll('th');
+    expect(headers[0]?.classes()).toContain('sticky');
+    expect(headers[1]?.classes()).toContain('sticky');
+    expect(headers.at(-1)?.classes()).toContain('sticky');
+    expect(table.findAll('button').some((item) => item.text() === '查询产品分')).toBe(false);
+
+    const preview = wrapper.get('button[aria-label="预览 Portable solar power station 1000W 主图"]');
+    expect(preview.get('img').attributes('src')).toContain('mock-solar-station.jpg');
+    await preview.trigger('click');
+    expect(document.body.textContent).toContain('商品 10000001');
+
+    await wrapper.get('input[aria-label="选择 Portable solar power station 1000W"]').setValue(true);
+    await wrapper.get('input[aria-label="选择 Custom recycled cotton canvas tote bag"]').setValue(true);
+    button(wrapper.element as Node, '更多').click();
+    await flushPromises();
+    menuItem('批量查询产品分').click();
+    await flushPromises();
+
+    await vi.waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith('产品分查询完成：成功 2 个，失败 0 个。');
+      expect(wrapper.text().match(/4\.6\/6/g)).toHaveLength(2);
+    });
+    expect(wrapper.text()).not.toContain('质量与上下架');
+    wrapper.unmount();
+  });
+});
+
+function mountView() {
+  const gateway = new MockGatewayClient(0);
+  const Host = defineComponent({
+    setup() {
+      provideServices({
+        gateway,
+        settings: { load: () => Promise.resolve(settings()), save: () => Promise.resolve() },
+        operationAvailability: {
+          get: (operations) =>
+            Promise.resolve({
+              items: operations.map((operation) => ({
+                operation,
+                allowed: true,
+                reasonCode: 'TEST_ALLOWED'
+              }))
+            })
+        },
+        mode: 'mock'
+      });
+      return () => h(ProductsView);
+    }
+  });
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return mount(Host, { attachTo: document.body, global: { plugins: [[VueQueryPlugin, { queryClient }]] } });
+}
+
+async function waitForProducts(wrapper: ReturnType<typeof mountView>): Promise<void> {
+  await flushPromises();
+  await vi.waitFor(() => {
+    expect(wrapper.text()).toContain('Portable solar power station 1000W');
+    expect(wrapper.get('select[aria-label="每页条数"]').attributes('disabled')).toBeUndefined();
+  });
+}
+
+async function waitForSelectionCount(
+  wrapper: ReturnType<typeof mountView>,
+  expected: string,
+  context: string
+): Promise<void> {
+  await flushPromises();
+  await vi.waitFor(() => {
+    expect(wrapper.find('[data-testid="product-selection-count"]').text(), context).toBe(expected);
+  });
+}
+
+function button(root: Node, label: string): HTMLButtonElement {
+  if (!(root instanceof Element)) throw new Error('Toolbar root is not an element');
+  const match = [...root.querySelectorAll<HTMLButtonElement>('button')].find(
+    (candidate) => candidate.textContent.trim() === label
+  );
+  if (!match) throw new Error(`Missing button: ${label}`);
+  return match;
+}
+
+function menuItem(label: string): HTMLElement {
+  const match = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+    (candidate) => candidate.textContent.trim() === label
+  );
+  if (!match) throw new Error(`Missing menu item: ${label}`);
+  return match;
+}
+
+function settings() {
+  return {
+    appKey: '',
+    appSecret: '',
+    accessToken: '',
+    endpoint: 'https://eco.taobao.com/router/rest',
+    signMethod: 'hmac' as const
+  };
+}
